@@ -1,0 +1,6 @@
+npm install -g yarn ---> install yarn
+yarn create react-app my-app ----> create react app
+cd my-app ---->  Navigate to the App Folder
+yarn start ---> start app 
+
+
