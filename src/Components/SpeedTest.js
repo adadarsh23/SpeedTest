@@ -12,9 +12,8 @@ const SpeedTest = ({ theme, language, t }) => {
   const testDownload = async () => {
     setStatusMessage(t.testingDownload);
     try {
-      const fileUrl =
-        "http://ipv4.download.thinkbroadband.com:8080/5MB.zip";
-      const fileSizeBytes = 4995374;
+      const fileUrl = "https://www.learningcontainer.com/wp-content/uploads/2020/05/sample-mp4-file.mp4"; // Sample file URL
+      const fileSizeBytes = 10485760;
       const startTime = performance.now();
       const response = await fetch(fileUrl);
       await response.blob();
@@ -22,7 +21,8 @@ const SpeedTest = ({ theme, language, t }) => {
       const duration = (endTime - startTime) / 1000;
       const speedMbps = (fileSizeBytes * 8) / duration / 1024 / 1024;
       setDownloadSpeed(Number(speedMbps.toFixed(2)));
-    } catch {
+    } catch (error) {
+      console.error("Download test failed:", error);
       setDownloadSpeed(0);
     }
   };
@@ -30,16 +30,13 @@ const SpeedTest = ({ theme, language, t }) => {
   const testUpload = async () => {
     setStatusMessage(t.testingUpload);
     try {
-      const blob = new Blob([new ArrayBuffer(1 * 1024 * 1024)], {
-        type: "application/octet-stream",
-      });
+      const blob = new Blob([new ArrayBuffer(1024 * 1024)], { type: "application/octet-stream" });
       const startTime = performance.now();
-      const response = await fetch("https://jsonplaceholder.typicode.com/posts", {
+      const response = await fetch("https://httpbin.org/post", {
         method: "POST",
-        headers: { "Content-Type": "application/octet-stream" },
         body: blob,
       });
-      if (!response.ok) throw new Error("Upload failed");
+      await response.text();
       const endTime = performance.now();
       const duration = (endTime - startTime) / 1000;
       const speedMbps = (blob.size * 8) / duration / 1024 / 1024;
@@ -51,17 +48,17 @@ const SpeedTest = ({ theme, language, t }) => {
 
   const testPing = async () => {
     setStatusMessage(t.testingPing);
-    const times = [];
+    const pings = [];
     for (let i = 0; i < 3; i++) {
       const start = performance.now();
       try {
         await fetch("https://www.google.com", { mode: "no-cors" });
-      } catch { }
+      } catch {}
       const end = performance.now();
-      times.push(end - start);
+      pings.push(end - start);
     }
-    const avg = times.reduce((a, b) => a + b, 0) / times.length;
-    setPing(Number(avg.toFixed(0)));
+    const avgPing = pings.reduce((a, b) => a + b, 0) / pings.length;
+    setPing(Number(avgPing.toFixed(0)));
   };
 
   const getIPInfo = async () => {
@@ -82,29 +79,37 @@ const SpeedTest = ({ theme, language, t }) => {
     setUploadSpeed(0);
     setPing(0);
     setIpData(null);
-
     await getIPInfo();
     await testPing();
     await testDownload();
     await testUpload();
-
     setStatusMessage(t.testComplete);
     setLoading(false);
   };
 
+  const getPingColor = () => {
+    if (ping < 50) return "text-green-600";
+    if (ping < 100) return "text-yellow-500";
+    return "text-red-600";
+  };
+
+  const getPingStatus = () => {
+    if (ping < 50) return t.excellent || "Excellent";
+    if (ping < 100) return t.good || "Good";
+    return t.poor || "Poor";
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-white dark:from-gray-900 dark:to-black py-8 px-4 flex items-center">
-      <div className="w-full max-w-3xl p-6 rounded-2xl bg-white dark:bg-gray-800 shadow-xl space-y-6 text-center">
-        <h1 className="text-3xl md:text-4xl font-bold text-blue-600 dark:text-white">
-          {t.speedTest}
-        </h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-100 to-white dark:from-gray-900 dark:to-black py-10 px-4 flex justify-center">
+      <div className="w-full max-w-3xl bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-8 space-y-8 text-center">
+        <h1 className="text-3xl md:text-4xl font-bold text-blue-600 dark:text-white">{t.speedTest}</h1>
 
         {loading && <LoadingSpinner text={statusMessage || t.loading} />}
 
         {!loading && (
           <>
             {ipData && (
-              <div className="text-sm text-left space-y-1 bg-white/80 dark:bg-gray-700/80 rounded-lg p-4 shadow">
+              <div className="text-left text-sm bg-white/90 dark:bg-gray-700/80 p-4 rounded-lg shadow space-y-1">
                 <p><strong>{t.ip}:</strong> {ipData.ip}</p>
                 <p><strong>{t.location}:</strong> {ipData.city}, {ipData.region}, {ipData.country_name}</p>
                 <p><strong>{t.isp}:</strong> {ipData.org}</p>
@@ -136,11 +141,15 @@ const SpeedTest = ({ theme, language, t }) => {
               </div>
             )}
 
-            {/* Text Summary */}
-            <div className="mt-6 space-y-1 text-lg font-medium text-gray-800 dark:text-gray-100">
+            <div className="space-y-6 text-lg font-semibold text-gray-800 dark:text-gray-200">
               <p>📥 {t.downloadSpeed}: <span className="text-blue-600">{downloadSpeed} Mbps</span></p>
               <p>📤 {t.uploadSpeed}: <span className="text-green-600">{uploadSpeed} Mbps</span></p>
-              <p>📶 {t.latency}: <span className="text-red-600">{ping} ms</span></p>
+
+              <div className="inline-block bg-white dark:bg-gray-700 p-5 rounded-xl shadow-lg">
+                <p className="text-xl font-medium text-gray-600 dark:text-gray-200">{t.latency || "Latency"}</p>
+                <p className={`text-4xl font-extrabold ${getPingColor()}`}>{ping} ms</p>
+                <p className="text-sm text-gray-500 italic">{getPingStatus()}</p>
+              </div>
             </div>
           </>
         )}
@@ -148,15 +157,16 @@ const SpeedTest = ({ theme, language, t }) => {
         <button
           onClick={runTests}
           disabled={loading}
-          className={`mt-6 px-8 py-3 font-semibold text-white rounded-full transition-all shadow ${loading
-            ? "bg-gray-400 cursor-not-allowed"
-            : "bg-gradient-to-r from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500"
-            }`}
+          className={`mt-6 px-8 py-3 font-semibold text-white rounded-full transition ${
+            loading
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500"
+          }`}
         >
           {loading ? (
-            <span className="animate-spin inline-block w-6 h-6 border-2 border-white border-t-transparent rounded-full" />
+            <span className="animate-spin inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
           ) : (
-            t.startTest
+            t.startTest || "Start Test"
           )}
         </button>
       </div>
